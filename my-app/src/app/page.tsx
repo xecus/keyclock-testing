@@ -1,30 +1,31 @@
-"use client";
-
+import { headers } from 'next/headers';
 import styles from "./page.module.css";
-import { useKeycloak } from "../hooks/useKeycloak";
-import { AuthenticationPanel } from "../components/AuthenticationPanel";
 
-export default function Home() {
-  const { keycloak, isLoading, isAuthenticated, error } = useKeycloak();
+export default async function Home() {
+  const headersList = headers();
+  const headersObject: Record<string, string> = {};
 
-  const handleRefreshToken = () => {
-    keycloak?.updateToken(1_000).then((refreshed) => {
-      if (refreshed) {
-        console.log("Token refreshed");
-      }
-    });
-  };
+  headersList.forEach((value, key) => {
+    headersObject[key] = value;
+  });
 
   return (
     <div className={styles.page}>
       <main className={styles.main}>
-        <AuthenticationPanel
-          keycloak={keycloak}
-          isAuthenticated={isAuthenticated}
-          isLoading={isLoading}
-          error={error}
-          onRefreshToken={handleRefreshToken}
-        />
+        <h1>リクエストヘッダー一覧</h1>
+        <div style={{ marginTop: '20px' }}>
+          <h2>受信したヘッダー:</h2>
+          <pre style={{
+            backgroundColor: '#f5f5f5',
+            padding: '15px',
+            borderRadius: '5px',
+            overflow: 'auto',
+            fontSize: '14px',
+            lineHeight: '1.4'
+          }}>
+            {JSON.stringify(headersObject, null, 2)}
+          </pre>
+        </div>
       </main>
     </div>
   );

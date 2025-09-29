@@ -1,6 +1,6 @@
 services:
   keycloak:
-    image: quay.io/keycloak/keycloak:26.3.2
+    image: quay.io/keycloak/keycloak:latest
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
@@ -8,12 +8,79 @@ services:
       KC_DB_URL: jdbc:postgresql://db:5432/keycloak
       KC_DB_USERNAME: keycloak_user
       KC_DB_PASSWORD: keycloak_password
+      KC_HOSTNAME_STRICT_HTTPS: 'false'
+      KC_HTTPS_CERTIFICATE_FILE: /etc/x509/https/server.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /etc/x509/https/server.key
+    volumes:
+      - ./keycloak/data:/opt/keycloak/data
+      - ./keycloak/certs:/etc/x509/https
     ports:
-      - "8080:8080"
+      - "18080:8080"
+      - "8443:8443"
+
     command:
       - start-dev
     depends_on:
       - db
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - keycloak
+      - oauth2-proxy
+      - httpbin
+      - app
+
+  httpbin:
+    image: kennethreitz/httpbin
+    ports:
+    - "8001:80"
+
+  oauth2-proxy:
+    container_name: oauth2-proxy
+    hostname: oauth2-proxy
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    ports:
+      - 4180:4180
+    environment:
+      OAUTH2_PROXY_PROVIDER: oidc
+      OAUTH2_PROXY_OIDC_EMAIL_CLAIM: email
+      OAUTH2_PROXY_SCOPE: "openid"
+      # keycloakで設定したClient IDと同じ
+      OAUTH2_PROXY_CLIENT_ID: oauth2-proxy
+      # keycloakで取得したCredentials
+      OAUTH2_PROXY_CLIENT_SECRET: "vkN5gl1dKuzsK5HkNYaKZ6mOkyXYfVQk"
+      OAUTH2_PROXY_OIDC_ISSUER_URL: https://keycloak:8443/realms/myrealm
+      OAUTH2_PROXY_OIDC_AUTH_URL: http://keycloak:8443/realms/myrealm/protocol/openid-connect/auth
+      OAUTH2_PROXY_OIDC_REDEEM_URL: http://keycloak:8443/realms/myrealm/protocol/openid-connect/token
+      OAUTH2_PROXY_OIDC_PROFILE_URL: http://keycloak:8443/realms/myrealm/protocol/openid-connect/userinfo
+      OAUTH2_PROXY_OIDC_JWKS_URL: https://keycloak:8443/realms/myrealm/protocol/openid-connect/certs
+      # OAUTH2_PROXY_COOKIE_SECRETは「python -c 'import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())'」で生成可。
+      OAUTH2_PROXY_COOKIE_SECRET: "5JEx-EnDmjnlN-1wd2EQDMrLLEly5NOUUSYsZCiy3Tc="
+      # keycloakで設定したRealmの名前
+      OAUTH2_PROXY_COOKIE_NAME: "myrealm"
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      OAUTH2_PROXY_HTTP_ADDRESS: "0.0.0.0:4180"
+      OAUTH2_PROXY_PASS_ACCESS_TOKEN: "true"
+      OAUTH2_PROXY_PASS_USER_HEADERS: "true"
+      OAUTH2_PROXY_PASS_AUTHORIZATION_HEADER: "true"
+      OAUTH2_PROXY_SSL_INSECURE_SKIP_VERIFY: "true"
+      OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL: "true"
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      OAUTH2_PROXY_SET_AUTHORIZATION_HEADER: "true"
+      # 以下、HTTPS ではなく HTTP で動かすための設定
+      OAUTH2_PROXY_REDIRECT_URL: http://localhost:8000/oauth2/callback
+      OAUTH2_PROXY_COOKIE_SECURE: "false"
+      OAUTH2_PROXY_COOKIE_EXPIRE: "30m"
+      # OAUTH2_PROXY_COOKIE_EXPIRE: "12h"
+      # OAUTH2_PROXY_COOKIE_SECURE: "true"
+      # OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      # OAUTH2_PROXY_REVERSE_PROXY: "true"
+      # OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
 
   db:
     image: postgres:17.5
@@ -21,12 +88,16 @@ services:
       POSTGRES_DB: keycloak
       POSTGRES_USER: keycloak_user
       POSTGRES_PASSWORD: keycloak_password
-    ports:
-      - "5432:5432"
+    #ports:
+    #  - "5432:5432"
     volumes:
       - postgresql:/var/lib/postgresql/data
 
-
-
+  app:
+    build: .
+    volumes:
+      - "./:/app"
+    ports:
+      - "3000:3000"
 volumes:
   postgresql:
