@@ -21,7 +21,10 @@ export default async function Home() {
             borderRadius: '5px',
             overflow: 'auto',
             fontSize: '14px',
-            lineHeight: '1.4'
+            lineHeight: '1.4',
+            wordWrap: 'break-word',
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'break-word'
           }}>
             {JSON.stringify(headersObject, null, 2)}
           </pre>
