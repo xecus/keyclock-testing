@@ -22,7 +22,6 @@ services:
       - start-dev
     depends_on:
       - db
-      - fluentd
     logging:
       driver: fluentd
       options:
@@ -44,7 +43,6 @@ services:
       - oauth2-proxy
       - httpbin
       - app
-      - fluentd
 
     logging:
       driver: fluentd
@@ -60,8 +58,6 @@ services:
     restart: unless-stopped
     ports:
       - "8001:80"
-    depends_on:
-      - fluentd
     logging:
       driver: fluentd
       options:
@@ -117,7 +113,6 @@ services:
       OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "false"
     depends_on:
       - keycloak
-      - fluentd
     logging:
       driver: fluentd
       options:
@@ -138,8 +133,6 @@ services:
     #  - "5432:5432"
     volumes:
       - postgresql:/var/lib/postgresql/data
-    depends_on:
-      - fluentd
     logging:
       driver: fluentd
       options:
@@ -156,8 +149,6 @@ services:
       - "./:/app"
     ports:
       - "3000:3000"
-    depends_on:
-      - fluentd
     logging:
       driver: fluentd
       options:
@@ -166,19 +157,6 @@ services:
         fluentd-async: "true"
         mode: "non-blocking"
         max-buffer-size: "8m"
-
-  fluentd:
-    image: fluent/fluentd:v1.16-1
-    restart: unless-stopped
-    container_name: fluentd
-    volumes:
-      - ./fluentd/conf:/fluentd/etc
-      - ./fluentd/log:/fluentd/log
-    ports:
-      - "24224:24224"
-      - "24224:24224/udp"
-    environment:
-      FLUENTD_CONF: fluentd.conf
 
 volumes:
   postgresql:
