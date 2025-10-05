@@ -149,18 +149,18 @@ def main():
         refresh_token = token_response.get("refresh_token")
         id_token = token_response.get("id_token")
 
-        print("Access Token (first 50 chars):")
-        print(f"  {access_token[:50]}...")
+        print("Access Token:")
+        print(f"  {access_token}")
         print()
 
         if id_token:
-            print("ID Token (first 50 chars):")
-            print(f"  {id_token[:50]}...")
+            print("ID Token:")
+            print(f"  {id_token}")
             print()
 
         if refresh_token:
-            print("Refresh Token (first 50 chars):")
-            print(f"  {refresh_token[:50]}...")
+            print("Refresh Token:")
+            print(f"  {refresh_token}")
             print()
 
         print(f"Token Type: {token_type}")
@@ -187,6 +187,54 @@ def main():
         print("=" * 60)
         print("Device flow completed successfully!")
         print("=" * 60)
+        print()
+
+        # Token refresh loop
+        if refresh_token:
+            print("Step 5: Starting token refresh loop...")
+            print("Press Ctrl+C to stop")
+            print()
+
+            refresh_count = 0
+            current_refresh_token = refresh_token
+            current_access_token = access_token
+            current_expires_in = expires_in
+
+            while True:
+                # Refresh 30 seconds before expiry
+                sleep_time = max(current_expires_in - 30, 10)
+
+                print(f"[{time.strftime('%H:%M:%S')}] Token expires in {current_expires_in}s. Sleeping for {sleep_time}s...")
+                time.sleep(sleep_time)
+
+                # Refresh token
+                print(f"[{time.strftime('%H:%M:%S')}] Refreshing token...")
+                try:
+                    refresh_data = {
+                        "grant_type": "refresh_token",
+                        "client_id": CLIENT_ID,
+                        "refresh_token": current_refresh_token
+                    }
+                    if CLIENT_SECRET:
+                        refresh_data["client_secret"] = CLIENT_SECRET
+
+                    resp = requests.post(TOKEN_ENDPOINT, data=refresh_data)
+                    if resp.status_code == 200:
+                        new_token = resp.json()
+                        current_access_token = new_token["access_token"]
+                        current_refresh_token = new_token.get("refresh_token", current_refresh_token)
+                        current_expires_in = new_token.get("expires_in", 300)
+                        refresh_count += 1
+                        print(f"[{time.strftime('%H:%M:%S')}] ✓ Token refreshed successfully! (Count: {refresh_count})")
+                        print(f"  New Access Token: {current_access_token}")
+                        print(f"  Expires In: {current_expires_in} seconds")
+                        print()
+                    else:
+                        print(f"[{time.strftime('%H:%M:%S')}] ✗ Failed to refresh token: {resp.status_code} {resp.text}")
+                        break
+                except Exception as e:
+                    print(f"[{time.strftime('%H:%M:%S')}] ✗ Failed to refresh token: {e}")
+                    break
 
         return 0
 

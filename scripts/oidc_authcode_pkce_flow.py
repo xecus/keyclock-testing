@@ -16,6 +16,7 @@ Configuration:
 
 import os
 import sys
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import webbrowser
@@ -179,18 +180,18 @@ def main():
 
         print("✓ Tokens received successfully!")
         print()
-        print("Access Token (first 50 chars):")
-        print(f"  {token['access_token'][:50]}...")
+        print("Access Token:")
+        print(f"  {token['access_token']}")
         print()
 
         if "id_token" in token:
-            print("ID Token (first 50 chars):")
-            print(f"  {token['id_token'][:50]}...")
+            print("ID Token:")
+            print(f"  {token['id_token']}")
             print()
 
         if "refresh_token" in token:
-            print("Refresh Token (first 50 chars):")
-            print(f"  {token['refresh_token'][:50]}...")
+            print("Refresh Token:")
+            print(f"  {token['refresh_token']}")
             print()
 
         print(f"Token Type: {token.get('token_type')}")
@@ -216,6 +217,38 @@ def main():
         print("=" * 60)
         print("Authentication flow completed successfully!")
         print("=" * 60)
+        print()
+
+        # Token refresh loop
+        if "refresh_token" in token:
+            print("Step 6: Starting token refresh loop...")
+            print("Press Ctrl+C to stop")
+            print()
+
+            refresh_count = 0
+            while True:
+                expires_in = token.get('expires_in', 300)
+                # Refresh 30 seconds before expiry
+                sleep_time = max(expires_in - 30, 10)
+
+                print(f"[{time.strftime('%H:%M:%S')}] Token expires in {expires_in}s. Sleeping for {sleep_time}s...")
+                time.sleep(sleep_time)
+
+                # Refresh token
+                print(f"[{time.strftime('%H:%M:%S')}] Refreshing token...")
+                try:
+                    token = client.refresh_token(
+                        TOKEN_ENDPOINT,
+                        refresh_token=token['refresh_token']
+                    )
+                    refresh_count += 1
+                    print(f"[{time.strftime('%H:%M:%S')}] ✓ Token refreshed successfully! (Count: {refresh_count})")
+                    print(f"  New Access Token: {token['access_token']}")
+                    print(f"  Expires In: {token.get('expires_in')} seconds")
+                    print()
+                except Exception as e:
+                    print(f"[{time.strftime('%H:%M:%S')}] ✗ Failed to refresh token: {e}")
+                    break
 
         return 0
     else:

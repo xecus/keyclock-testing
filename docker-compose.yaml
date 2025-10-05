@@ -82,7 +82,7 @@ services:
       # keycloakで設定したClient IDと同じ
       OAUTH2_PROXY_CLIENT_ID: oauth2-proxy
       # keycloakで取得したCredentials
-      OAUTH2_PROXY_CLIENT_SECRET: "vkN5gl1dKuzsK5HkNYaKZ6mOkyXYfVQk"
+      OAUTH2_PROXY_CLIENT_SECRET: "6gVL4grnkw9rMBCyS4NTLnreDNtqV1A2"
       OAUTH2_PROXY_OIDC_ISSUER_URL: https://keycloak:8443/realms/myrealm
       OAUTH2_PROXY_OIDC_AUTH_URL: http://keycloak:8443/realms/myrealm/protocol/openid-connect/auth
       OAUTH2_PROXY_OIDC_REDEEM_URL: http://keycloak:8443/realms/myrealm/protocol/openid-connect/token
