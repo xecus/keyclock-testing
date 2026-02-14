@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: keycloak_user
-      POSTGRES_PASSWORD: keycloak_password
+      POSTGRES_PASSWORD: keycloak_password  # 開発用。本番環境では必ず変更すること
     #ports:
     #  - "5432:5432"
     volumes:
@@ -20,12 +20,12 @@ services:
     image: quay.io/keycloak/keycloak:latest
     restart: unless-stopped
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin        # 開発用。本番環境では必ず変更すること
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin        # 開発用。本番環境では必ず変更すること
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://db:5432/keycloak
       KC_DB_USERNAME: keycloak_user
-      KC_DB_PASSWORD: keycloak_password
+      KC_DB_PASSWORD: keycloak_password        # 開発用。本番環境では必ず変更すること
       KC_HOSTNAME_STRICT_HTTPS: 'false'
       KC_HTTPS_CERTIFICATE_FILE: /etc/x509/https/server.crt
       KC_HTTPS_CERTIFICATE_KEY_FILE: /etc/x509/https/server.key
