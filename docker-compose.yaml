@@ -1,0 +1,132 @@
+services:
+  db:
+    image: postgres:17.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak_user
+      POSTGRES_PASSWORD: keycloak_password
+    #ports:
+    #  - "5432:5432"
+    volumes:
+      - postgresql:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    restart: unless-stopped
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+      KC_DB_USERNAME: keycloak_user
+      KC_DB_PASSWORD: keycloak_password
+      KC_HOSTNAME_STRICT_HTTPS: 'false'
+      KC_HTTPS_CERTIFICATE_FILE: /etc/x509/https/server.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /etc/x509/https/server.key
+    volumes:
+      - ./keycloak/data:/opt/keycloak/data
+      - ./keycloak/certs:/etc/x509/https
+    ports:
+      - "18080:8080"
+      - "8443:8443"
+    command:
+      - start-dev
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  oauth2-proxy:
+    container_name: oauth2-proxy
+    restart: unless-stopped
+    hostname: oauth2-proxy
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    ports:
+      - 4180:4180
+    environment:
+      OAUTH2_PROXY_PROVIDER: oidc
+      OAUTH2_PROXY_OIDC_EMAIL_CLAIM: email
+      OAUTH2_PROXY_SCOPE: "openid"
+      OAUTH2_PROXY_CODE_CHALLENGE_METHOD: S256
+      OAUTH2_PROXY_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OAUTH2_PROXY_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      OAUTH2_PROXY_OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}
+      OAUTH2_PROXY_OIDC_AUTH_URL: ${OIDC_AUTH_URL}
+      OAUTH2_PROXY_OIDC_REDEEM_URL: ${OIDC_REDEEM_URL}
+      OAUTH2_PROXY_OIDC_PROFILE_URL: ${OIDC_PROFILE_URL}
+      OAUTH2_PROXY_OIDC_JWKS_URL: ${OIDC_JWKS_URL}
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET}
+      OAUTH2_PROXY_COOKIE_NAME: ${OIDC_REALM}
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      OAUTH2_PROXY_HTTP_ADDRESS: "0.0.0.0:4180"
+      OAUTH2_PROXY_PASS_ACCESS_TOKEN: "true"
+      OAUTH2_PROXY_PASS_USER_HEADERS: "true"
+      OAUTH2_PROXY_PASS_AUTHORIZATION_HEADER: "true"
+      OAUTH2_PROXY_SSL_INSECURE_SKIP_VERIFY: "true"
+      OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL: "true"
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      OAUTH2_PROXY_SET_AUTHORIZATION_HEADER: "true"
+      # 以下、HTTPS ではなく HTTP で動かすための設定
+      OAUTH2_PROXY_REDIRECT_URL: ${OAUTH2_PROXY_REDIRECT_URL}
+      OAUTH2_PROXY_COOKIE_SECURE: "false"
+      OAUTH2_PROXY_COOKIE_REFRESH: "1m"
+      OAUTH2_PROXY_COOKIE_EXPIRE: "29m"
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "false"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  httpbin:
+    image: kennethreitz/httpbin
+    restart: unless-stopped
+    ports:
+      - "8001:80"
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost/get')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: ./my-app
+    restart: unless-stopped
+    environment:
+      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL}
+      OIDC_REALM: ${OIDC_REALM}
+      APP_BASE_URL: ${APP_BASE_URL}
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      oauth2-proxy:
+        condition: service_started
+      httpbin:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+
+volumes:
+  postgresql:
